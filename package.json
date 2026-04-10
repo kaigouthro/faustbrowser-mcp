@@ -1,0 +1,31 @@
+{
+  "name": "faustbrowser-mcp-typescript",
+  "version": "1.0.0",
+  "description": "Browser-only TypeScript implementation of Faust MCP server",
+  "type": "module",
+  "main": "dist/faust_browser_mcp.js",
+  "types": "dist/faust_browser_mcp.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "watch": "tsc --watch",
+    "clean": "rm -rf dist"
+  },
+  "keywords": [
+    "faust",
+    "mcp",
+    "browser",
+    "typescript",
+    "audio",
+    "dsp"
+  ],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "typescript": "^5.3.0"
+  },
+  "dependencies": {
+    "@grame/faustwasm": "^0.15.7",
+    "@shren/faust-ui": "^1.1.19"
+  }
+}
