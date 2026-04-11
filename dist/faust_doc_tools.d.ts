@@ -52,7 +52,7 @@ export declare class FaustDocStore {
      */
     compactSymbols(): Symbol[];
     /**
-     * Load one detailed module JSON and cache it in memory.
+     * Load one detailed module JSON and cache the Promise to dedupe concurrent loads.
      */
     private loadModuleDocument;
     /**

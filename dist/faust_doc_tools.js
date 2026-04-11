@@ -86,8 +86,18 @@ export class FaustDocStore {
      */
     static async fromUrl(indexUrl) {
         const index = await loadJson(indexUrl);
-        // Extract base URL (remove index.json if present)
-        const baseUrl = indexUrl.replace(/\/index\.json$/, '');
+        // Compute base URL by stripping the filename component.
+        // Using URL API handles both 'path/to/index.json' and bare 'index.json'.
+        let baseUrl;
+        try {
+            const base = typeof location !== 'undefined' ? location.href : undefined;
+            const resolved = new URL(indexUrl, base);
+            baseUrl = new URL('.', resolved).href.replace(/\/$/, '');
+        }
+        catch {
+            // Fallback for non-standard URL strings: strip optional slash + index.json
+            baseUrl = indexUrl.replace(/\/?index\.json$/, '');
+        }
         return new FaustDocStore(index, baseUrl);
     }
     /**
@@ -97,13 +107,12 @@ export class FaustDocStore {
         return this.index.symbols || [];
     }
     /**
-     * Load one detailed module JSON and cache it in memory.
+     * Load one detailed module JSON and cache the Promise to dedupe concurrent loads.
      */
-    async loadModuleDocument(relpath) {
+    loadModuleDocument(relpath) {
         if (!this.moduleCache.has(relpath)) {
             const url = `${this.baseUrl}/${relpath}`;
-            const moduleDoc = await loadJson(url);
-            this.moduleCache.set(relpath, moduleDoc);
+            this.moduleCache.set(relpath, loadJson(url));
         }
         return this.moduleCache.get(relpath);
     }

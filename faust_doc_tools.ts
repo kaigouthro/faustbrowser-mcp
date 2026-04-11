@@ -105,7 +105,7 @@ function normalizeModuleKey(module: string): string {
 export class FaustDocStore {
   private index: Index;
   private baseUrl: string;
-  private moduleCache: Map<string, any> = new Map();
+  private moduleCache: Map<string, Promise<any>> = new Map();
   private libraryByPath: Map<string, Library> = new Map();
 
   private constructor(index: Index, baseUrl: string) {
@@ -132,8 +132,17 @@ export class FaustDocStore {
    */
   static async fromUrl(indexUrl: string): Promise<FaustDocStore> {
     const index = await loadJson(indexUrl);
-    // Extract base URL (remove index.json if present)
-    const baseUrl = indexUrl.replace(/\/index\.json$/, '');
+    // Compute base URL by stripping the filename component.
+    // Using URL API handles both 'path/to/index.json' and bare 'index.json'.
+    let baseUrl: string;
+    try {
+      const base = typeof location !== 'undefined' ? location.href : undefined;
+      const resolved = new URL(indexUrl, base);
+      baseUrl = new URL('.', resolved).href.replace(/\/$/, '');
+    } catch {
+      // Fallback for non-standard URL strings: strip optional slash + index.json
+      baseUrl = indexUrl.replace(/\/?index\.json$/, '');
+    }
     return new FaustDocStore(index, baseUrl);
   }
 
@@ -145,15 +154,14 @@ export class FaustDocStore {
   }
 
   /**
-   * Load one detailed module JSON and cache it in memory.
+   * Load one detailed module JSON and cache the Promise to dedupe concurrent loads.
    */
-  private async loadModuleDocument(relpath: string): Promise<any> {
+  private loadModuleDocument(relpath: string): Promise<any> {
     if (!this.moduleCache.has(relpath)) {
       const url = `${this.baseUrl}/${relpath}`;
-      const moduleDoc = await loadJson(url);
-      this.moduleCache.set(relpath, moduleDoc);
+      this.moduleCache.set(relpath, loadJson(url));
     }
-    return this.moduleCache.get(relpath);
+    return this.moduleCache.get(relpath)!;
   }
 
   /**

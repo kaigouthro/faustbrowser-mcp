@@ -278,7 +278,7 @@ npm run build
 npm run watch
 
 # Clean build artifacts
-npm clean
+npm run clean
 ```
 
 ### File Structure

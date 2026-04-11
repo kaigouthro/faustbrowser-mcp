@@ -363,12 +363,8 @@ export class FaustBrowserMcpServer {
                 const result = await explainFaustSymbolForGoal(this.docStore, args.symbol, args.goal);
                 return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] };
             }
-            // Runtime tools - delegate to the Faust runtime
-            const runtimeMethod = this.getRuntimeMethod(name);
-            if (!this.runtime[runtimeMethod]) {
-                throw new Error(`Unknown tool: ${name}`);
-            }
-            const result = await this.runtime[runtimeMethod](args);
+            // Runtime tools - delegate to the Faust runtime with positional args
+            const result = await this.callRuntimeTool(name, args);
             return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] };
         }
         catch (error) {
@@ -376,11 +372,55 @@ export class FaustBrowserMcpServer {
         }
     }
     /**
-     * Map tool name to runtime method name.
+     * Map MCP tool arguments to positional runtime calls.
+     * The browser runtime uses snake_case method names and positional arguments.
      */
-    getRuntimeMethod(toolName) {
-        // Convert snake_case to camelCase
-        return toolName.replace(/_([a-z])/g, (_, letter) => letter.toUpperCase());
+    async callRuntimeTool(name, args) {
+        const a = args || {};
+        switch (name) {
+            case 'compile_and_start':
+                return this.runtime.compile_and_start(a.faust_code, a.name, a.latency_hint, a.input_source, a.input_freq, a.input_file, a.hide_meters, a.double_precision);
+            case 'compile':
+                return this.runtime.compile(a.faust_code, a.name, a.latency_hint, a.input_source, a.input_freq, a.input_file, a.hide_meters, a.double_precision);
+            case 'check_syntax':
+                return this.runtime.check_syntax(a.faust_code, a.name, a.double_precision);
+            case 'start':
+                return this.runtime.start();
+            case 'stop':
+                return this.runtime.stop();
+            case 'destroy':
+                return this.runtime.destroy();
+            case 'get_status':
+                return this.runtime.get_status();
+            case 'get_params':
+                return this.runtime.get_params();
+            case 'get_param':
+                return this.runtime.get_param(a.path);
+            case 'set_param':
+                return this.runtime.set_param(a.path, a.value);
+            case 'get_param_values':
+                return this.runtime.get_param_values();
+            case 'set_param_values':
+                return this.runtime.set_param_values(a.values);
+            case 'get_audio_metrics':
+                return this.runtime.get_audio_metrics(a.include_scope, a.include_spectrum, a.per_channel, a.fft_size, a.smoothing, a.min_db, a.max_db, a.edge_threshold, a.log_bins);
+            case 'get_midi_inputs':
+                return this.runtime.get_midi_inputs();
+            case 'select_midi_input':
+                return this.runtime.select_midi_input(a.index, a.name);
+            case 'get_midi_status':
+                return this.runtime.get_midi_status();
+            case 'unlock_audio':
+                return this.runtime.unlock_audio(a.latency_hint);
+            case 'load_wasm_module':
+                return this.runtime.load_wasm_module(a);
+            case 'save_wasm_module':
+                return this.runtime.save_wasm_module();
+            case 'get_dsp_json':
+                return this.runtime.get_dsp_json();
+            default:
+                throw new Error(`Unknown tool: ${name}`);
+        }
     }
     /**
      * Handle an incoming MCP request.

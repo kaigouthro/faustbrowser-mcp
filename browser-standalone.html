@@ -262,11 +262,16 @@ process = os.osc(freq) * gain;</textarea>
   </div>
 
   <script type="module">
-    // Simple demo script - in production this would import the compiled TypeScript modules
+    import { createBrowserMcpServer } from './dist/faust_browser_mcp.js';
+    import { createBrowserRuntime } from './faust_browser_runtime.mjs';
+
     const log = document.getElementById('log');
     const statusText = document.getElementById('status-text');
     const runtimeText = document.getElementById('runtime-text');
     const mcpText = document.getElementById('mcp-text');
+
+    let server = null;
+    let runtime = null;
 
     function addLog(message, type = 'info') {
       const entry = document.createElement('div');
@@ -292,13 +297,8 @@ process = os.osc(freq) * gain;</textarea>
       updateStatus('Initializing...', '');
 
       try {
-        // In production, this would import and initialize the actual MCP server
-        // import { createBrowserMcpServer } from './dist/faust_browser_mcp.js';
-        // const runtime = createBrowserRuntime();
-        // const server = await createBrowserMcpServer(runtime, '/faust-doc/index.json');
-
-        // For demo purposes:
-        await new Promise(resolve => setTimeout(resolve, 1000));
+        runtime = createBrowserRuntime();
+        server = await createBrowserMcpServer(runtime, './faust-doc/index.json');
 
         addLog('MCP server initialized successfully', 'success');
         mcpText.textContent = 'Initialized';
@@ -314,7 +314,6 @@ process = os.osc(freq) * gain;</textarea>
     document.getElementById('test-btn').addEventListener('click', async () => {
       addLog('Testing MCP tool call...', 'info');
       try {
-        // Demo of MCP request/response
         const request = {
           jsonrpc: '2.0',
           id: 1,
@@ -323,9 +322,9 @@ process = os.osc(freq) * gain;</textarea>
         };
         addLog(`Request: ${JSON.stringify(request)}`, 'info');
 
-        // Simulate response
-        await new Promise(resolve => setTimeout(resolve, 500));
-        addLog('Response: Successfully retrieved tool list', 'success');
+        const response = await server.handleRequest(request);
+        const toolCount = response.result?.tools?.length ?? 0;
+        addLog(`Response: ${toolCount} tools available`, 'success');
       } catch (error) {
         addLog(`Error: ${error.message}`, 'error');
       }
@@ -334,8 +333,20 @@ process = os.osc(freq) * gain;</textarea>
     document.getElementById('unlock-audio-btn').addEventListener('click', async () => {
       addLog('Unlocking audio context...', 'info');
       try {
-        // This would call the actual runtime unlock method
-        await new Promise(resolve => setTimeout(resolve, 500));
+        if (server) {
+          const response = await server.handleRequest({
+            jsonrpc: '2.0',
+            id: Date.now(),
+            method: 'tools/call',
+            params: { name: 'unlock_audio', arguments: {} }
+          });
+          if (response.error) throw new Error(response.error.message);
+        } else {
+          // Runtime not yet initialized - unlock audio context directly
+          const ctx = new AudioContext();
+          await ctx.resume();
+          ctx.close();
+        }
         addLog('Audio context unlocked', 'success');
         runtimeText.textContent = 'Audio ready';
       } catch (error) {
@@ -348,8 +359,13 @@ process = os.osc(freq) * gain;</textarea>
       addLog('Compiling Faust code...', 'info');
 
       try {
-        // This would call the actual MCP server tool
-        await new Promise(resolve => setTimeout(resolve, 1000));
+        const response = await server.handleRequest({
+          jsonrpc: '2.0',
+          id: Date.now(),
+          method: 'tools/call',
+          params: { name: 'compile_and_start', arguments: { faust_code: code } }
+        });
+        if (response.error) throw new Error(response.error.message);
         addLog('Compilation successful', 'success');
         addLog('Audio started', 'success');
         document.getElementById('stop-btn').disabled = false;
@@ -358,16 +374,28 @@ process = os.osc(freq) * gain;</textarea>
       }
     });
 
-    document.getElementById('stop-btn').addEventListener('click', () => {
+    document.getElementById('stop-btn').addEventListener('click', async () => {
       addLog('Stopping audio...', 'info');
-      addLog('Audio stopped', 'success');
-      document.getElementById('stop-btn').disabled = true;
+      try {
+        if (server) {
+          await server.handleRequest({
+            jsonrpc: '2.0',
+            id: Date.now(),
+            method: 'tools/call',
+            params: { name: 'stop', arguments: {} }
+          });
+        }
+        addLog('Audio stopped', 'success');
+        document.getElementById('stop-btn').disabled = true;
+      } catch (error) {
+        addLog(`Error: ${error.message}`, 'error');
+      }
     });
 
     // Show initial info
     addLog('This is a pure TypeScript browser implementation', 'info');
     addLog('No Python or Node.js server required', 'success');
-    addLog('Ready to initialize MCP server', 'info');
+    addLog('Click "Initialize MCP Server" to begin', 'info');
   </script>
 </body>
 </html>

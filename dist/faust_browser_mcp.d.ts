@@ -57,9 +57,10 @@ export declare class FaustBrowserMcpServer {
      */
     private handleToolCall;
     /**
-     * Map tool name to runtime method name.
+     * Map MCP tool arguments to positional runtime calls.
+     * The browser runtime uses snake_case method names and positional arguments.
      */
-    private getRuntimeMethod;
+    private callRuntimeTool;
     /**
      * Handle an incoming MCP request.
      */
